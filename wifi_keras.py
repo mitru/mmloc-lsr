@@ -24,11 +24,14 @@ from data_functions import DownsampleDataset
 np.random.seed(7)
 
 # Hyper-parameters
-wifi_input_size = 193
+wifi_input_size = 102
 hidden_size = 128
 output_dim = 2
+batch_size=100
 learning_rate = 0.005
-epoch=200
+epoch=100
+
+model_name = "wifi_edin"
 
 training=DownsampleDataset()
 WifiTrain=training.wifitrain
@@ -36,7 +39,7 @@ locationlabel=training.labeltrain
 WifiTest=training.wifitest
 locationtest=training.labeltest
 
-model_name = "wifi_DNN_model_romania"
+
 tensorboard = TensorBoard(log_dir='logs/{}'.format(model_name))
 model = Sequential()
 model.add(Dense(hidden_size,activation='relu',input_dim=wifi_input_size))
@@ -51,18 +54,33 @@ model.compile(optimizer=RMSprop(learning_rate),
 
 model.fit(WifiTrain, locationlabel,
                        #validation_data=(WifiVal,locationval),
-                       epochs=epoch, batch_size=100, verbose=1,callbacks=[tensorboard]
+                       epochs=epoch, batch_size=batch_size, verbose=1,callbacks=[tensorboard]
                        #shuffle=False,
                        )
 
-model.save("romaniamodel/wifi_DNN_model.h5")
+#save model
+model.save("edinmodel/"+str(model_name)+".h5")
+fig1=plt.figure()
 fig=plt.figure()
-locPrediction = model.predict(WifiTest, batch_size=100)
-aveLocPrediction = pf.get_ave_prediction(locPrediction, 100)
+locPrediction = model.predict(WifiTest, batch_size=batch_size)
+aveLocPrediction = pf.get_ave_prediction(locPrediction, batch_size)
 data=pf.normalized_data_to_utm(np.hstack((locationtest, aveLocPrediction)))
 plt.plot(data[:,0],data[:,1],'b',data[:,2],data[:,3],'r')
 plt.legend(['target','prediction'],loc='upper right')
 plt.xlabel("x-latitude")
 plt.ylabel("y-longitude")
-plt.title('wifi_DNN_model prediction')
-fig.savefig("romaniapredictionpng/wifi_locprediction.png")
+plt.title(str(model_name)+" Prediction")
+fig1.savefig("edinpredictionpng/"+str(model_name)+"_locprediction.png")
+
+#draw cdf picture
+fig=plt.figure()
+bin_edge,cdf=pf.cdfdiff(target=locationtest,predict=locPrediction)
+plt.plot(bin_edge[0:-1],cdf,linestyle='--',label=str(model_name),color='r')
+plt.xlim(xmin = 0)
+plt.ylim((0,1))
+plt.xlabel("metres")
+plt.ylabel("CDF")
+plt.legend(str(model_name),loc='upper right')
+plt.grid(True)
+plt.title((str(model_name)+' CDF'))
+fig.savefig("edincdf/"+str(model_name)+"_CDF.pdf")

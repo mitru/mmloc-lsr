@@ -1,0 +1,1 @@
+run wifi_keras.py downsample_keras.py and mmloc_keras.py to train the model for wifi independent model, sensor independent model and multimodality model.

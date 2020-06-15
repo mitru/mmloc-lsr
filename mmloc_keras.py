@@ -22,6 +22,9 @@ output_dim = 2
 num_epochs = 100
 learning_rate = 0.005
 
+
+model_name = "mmloc_edinburgh"
+
 #load downsample dataset
 train_sensor=DownsampleDataset()
 
@@ -57,7 +60,6 @@ mmloc=Model(inputs=[sensorinput,wifiinput],outputs=[output])
 mmloc.compile(optimizer=RMSprop(learning_rate),
                  loss='mse',metrics=['acc'])
 
-model_name = "mmloc_multi_model_romania"
 tensorboard = TensorBoard(log_dir='logs/{}'.format(model_name))
 
 mmloc.fit([SensorTrain,WifiTrain], locationtrain,
@@ -67,14 +69,28 @@ mmloc.fit([SensorTrain,WifiTrain], locationtrain,
                        )
 
 #save model
-mmloc.save("romaniamodel/mmloc_multi.h5")
-fig=plt.figure()
-locPrediction = mmloc.predict([SensorTest,WifiTest], batch_size=100)
-aveLocPrediction = pf.get_ave_prediction(locPrediction, 100)
+mmloc.save("edinmodel/"+str(model_name)+".h5")
+fig1=plt.figure()
+locPrediction = mmloc.predict([SensorTest,WifiTest], batch_size=batch_size)
+aveLocPrediction = pf.get_ave_prediction(locPrediction, batch_size)
 data=pf.normalized_data_to_utm(np.hstack((locationtest, aveLocPrediction)))
 plt.plot(data[:,0],data[:,1],'b',data[:,2],data[:,3],'r')
 plt.legend(['target','prediction'],loc='upper right')
 plt.xlabel("x-latitude")
 plt.ylabel("y-longitude")
-plt.title('mmloc_multi prediction')
-fig.savefig("romaniapredictionpng/mmloc_multi_locprediction.png")
+plt.title(str(model_name)+" Prediction")
+fig1.savefig("edinpredictionpng/"+str(model_name)+"_locprediction.png")
+
+#draw cdf picture
+fig=plt.figure()
+bin_edge,cdf=pf.cdfdiff(target=locationtest,predict=locPrediction)
+plt.plot(bin_edge[0:-1],cdf,linestyle='--',label=str(model_name),color='r')
+plt.xlim(xmin = 0)
+plt.ylim((0,1))
+plt.xlabel("metres")
+plt.ylabel("CDF")
+plt.legend(str(model_name),loc='upper right')
+plt.grid(True)
+plt.title((str(model_name)+' CDF'))
+fig.savefig("edincdf/"+str(model_name)+"_CDF.pdf")
+

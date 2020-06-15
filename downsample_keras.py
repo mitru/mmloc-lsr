@@ -27,8 +27,11 @@ input_size = 3
 hidden_size = 128
 num_layers = 1
 output_dim = 2
+batch_size=100
 LR = 0.005
-epoch=20
+epoch=100
+
+model_name = "sensor_edin"
 
 train_sensor=DownsampleDataset()
 SensorTrain=train_sensor.sensortrain
@@ -36,10 +39,9 @@ locationtrain=train_sensor.labeltrain
 SensorTest=train_sensor.sensortest
 locationtest=train_sensor.labeltest
 
-model_name = "sensor_downsample_model_romania"
 tensorboard = TensorBoard(log_dir='logs/{}'.format(model_name))
 sensorinput=Input(shape=(SensorTrain.shape[1], SensorTrain.shape[2]))
-sensorlstm=LSTM(input_shape=(SensorTrain.shape[1], SensorTrain.shape[2]),units=128)(sensorinput)
+sensorlstm=LSTM(input_shape=(SensorTrain.shape[1], SensorTrain.shape[2]),units=hidden_size)(sensorinput)
 sensoroutput=Dense(2)(sensorlstm)
 model=Model(inputs=[sensorinput],outputs=[sensoroutput])
 
@@ -48,18 +50,31 @@ model.compile(optimizer=RMSprop(LR),
 
 model.fit(SensorTrain, locationtrain,
                        #validation_data=(SensorVal,locationval),
-                       epochs=epoch, batch_size=100, verbose=1,callbacks=[tensorboard]
+                       epochs=epoch, batch_size=batch_size, verbose=1,callbacks=[tensorboard]
                        #shuffle=False,
                        )
-
-model.save("romaniamodel/sensor_downsample_model.h5")
-fig=plt.figure()
-locPrediction = model.predict(SensorTest, batch_size=100)
-aveLocPrediction = pf.get_ave_prediction(locPrediction, 100)
+#save model
+model.save("edinmodel/"+str(model_name)+".h5")
+fig1=plt.figure()
+locPrediction = model.predict(SensorTest, batch_size=batch_size)
+aveLocPrediction = pf.get_ave_prediction(locPrediction, batch_size)
 data=pf.normalized_data_to_utm(np.hstack((locationtest, aveLocPrediction)))
 plt.plot(data[:,0],data[:,1],'b',data[:,2],data[:,3],'r')
 plt.legend(['target','prediction'],loc='upper right')
 plt.xlabel("x-latitude")
 plt.ylabel("y-longitude")
-plt.title('sensor_downsample_model prediction')
-fig.savefig("romaniapredictionpng/sensor_downsample_locprediction.png")
+plt.title(str(model_name)+" Prediction")
+fig1.savefig("edinpredictionpng/"+str(model_name)+"_locprediction.png")
+
+#draw cdf picture
+fig=plt.figure()
+bin_edge,cdf=pf.cdfdiff(target=locationtest,predict=locPrediction)
+plt.plot(bin_edge[0:-1],cdf,linestyle='--',label=str(model_name),color='r')
+plt.xlim(xmin = 0)
+plt.ylim((0,1))
+plt.xlabel("metres")
+plt.ylabel("CDF")
+plt.legend(str(model_name),loc='upper right')
+plt.grid(True)
+plt.title((str(model_name)+' CDF'))
+fig.savefig("edincdf/"+str(model_name)+"_CDF.pdf")

@@ -17,20 +17,24 @@ import tensorflow as tf
 timestep=100
 
 class SensorDataset(torch.utils.data.Dataset):
-    def __init__(self,mode="train",datapath='timestep100/',labelpath='sensordata/sensor_wifi_timestep100_',transform=torch.from_numpy):
+    def __init__(self,train=8,val=13,mode="train",datapath='timestep100/',labelpath='sensordata/sensor_wifi_timestep100_',transform=torch.from_numpy):
         self.mode=mode
         self.datapath=datapath
         self.labelpath=labelpath
         self.transform=transform
-        self.trainx,self.trainy=read_data(1,2)
-        self.testx,self.testy=read_data(5,5)
-        self.length=len(self.trainx)+len(self.testx)
+        self.trainx,self.trainy=read_data(1,train)
+        self.valx,self.valy=read_data(train+1,val)
+        self.testx,self.testy=read_data(val+1,14)
+        self.length=len(self.trainx)+len(self.valx)+len(self.testx)
     
     
     def __getitem__(self, index):
         if self.mode=="train":
             data=self.trainx[index]
             label=self.trainy[index]
+        elif self.mode=="val":
+            data=self.valx[index]
+            label=self.valy[index]
         else:
             data=self.testx[index]
             label=self.testy[index]
@@ -44,24 +48,30 @@ class SensorDataset(torch.utils.data.Dataset):
     def __len__(self):
         if self.mode=="train":
             return len(self.trainx)
+        elif self.mode=="val":
+            return len(self.valx)
         else:
             return len(self.testx)
 
 class WifinozerosDataset(torch.utils.data.Dataset):
-    def __init__(self,mode="train",datapath='timestep100/',labelpath='sensordata/sensor_wifi_timestep100_',transform=torch.from_numpy):
+    def __init__(self,train=8,val=13,mode="train",datapath='timestep100/',labelpath='sensordata/sensor_wifi_timestep100_',transform=torch.from_numpy):
         self.mode=mode
         self.datapath=datapath
         self.labelpath=labelpath
         self.transform=transform
-        self.trainx,self.trainy=read_wifi_data_nozeros(1,3)
-        self.testx,self.testy=read_wifi_data_nozeros(5,5)
-        self.length=len(self.trainx)+len(self.testx)
+        self.trainx,self.trainy=read_wifi_data_nozeros(1,train)
+        self.valx,self.valy=read_wifi_data_nozeros(train+1,val)
+        self.testx,self.testy=read_wifi_data_nozeros(val+1,14)
+        self.length=len(self.trainx)+len(self.valx)+len(self.testx)
     
     
     def __getitem__(self, index):
         if self.mode=="train":
             data=self.trainx[index]
             label=self.trainy[index]
+        elif self.mode=="val":
+            data=self.valx[index]
+            label=self.valy[index]
         else:
             data=self.testx[index]
             label=self.testy[index]
@@ -75,6 +85,8 @@ class WifinozerosDataset(torch.utils.data.Dataset):
     def __len__(self):
         if self.mode=="train":
             return len(self.trainx)
+        elif self.mode=="val":
+            return len(self.valx)
         else:
             return len(self.testx)
 
@@ -87,16 +99,21 @@ class DownsampleDataset(torch.utils.data.Dataset):
         self.transform=transform
         
         self.sensortrain,self.labeltrain,self.wifitrain=downsample_data(1,1,tw,slide)
-        for i in range(2,5):
+        for i in range(2,9):
             sensortrain,labeltrain,wifitrain=downsample_data(i, i, tw, slide)
             self.sensortrain=np.concatenate((self.sensortrain, sensortrain),axis=0)
             self.labeltrain=np.concatenate((self.labeltrain, labeltrain),axis=0)
             self.wifitrain=np.concatenate((self.wifitrain, wifitrain),axis=0)
-        
-        self.sensorval,self.labelval,self.wifival=downsample_data(5,5,tw,slide)
 
-        self.sensortest,self.labeltest,self.wifitest=downsample_data(6,6,tw,slide)
-        self.length=len(self.sensortrain)+len(self.sensortest)
+        self.sensorval,self.labelval,self.wifival=downsample_data(8,8,tw,slide)
+        for i in range(9,14):
+            sensorval,labelval,wifival=downsample_data(i, i, tw, slide)
+            self.sensorval=np.concatenate((self.sensorval, sensorval),axis=0)
+            self.labelval=np.concatenate((self.labelval, labelval),axis=0)
+            self.wifival=np.concatenate((self.wifival, wifival),axis=0)
+            
+        self.sensortest,self.labeltest,self.wifitest=downsample_data(14,14,tw,slide)
+        self.length=len(self.sensortrain)+len(self.sensorval)+len(self.sensortest)
     
     
     def __getitem__(self, index):
@@ -108,7 +125,6 @@ class DownsampleDataset(torch.utils.data.Dataset):
             sensor=self.sensorval[index]
             wifi=self.labelval[index]
             label=self.wifival[index]
-        
         else:
             sensor=self.sensortest[index]
             wifi=self.labeltest[index]
@@ -123,16 +139,17 @@ class DownsampleDataset(torch.utils.data.Dataset):
         
     def __len__(self):
         if self.mode=="train":
-            return len(self.sensortrain) 
+            return len(self.sensortrain)
         elif self.mode=="val":
             return len(self.sensorval)
+        
         else:
             return len(self.sensortest)
 
 def read_wifi_data(file_start,file_end):
     if file_start==file_end:     
         path='sensordata/sensor_wifi_timestep100_'+str(file_start)+'.csv'
-        dataset=pd.read_csv(path,usecols=[i for i in range(16,209)])       
+        dataset=pd.read_csv(path,usecols=[i for i in range(14,120)])       
         X=dataset.iloc[:,4:]
         X=np.array(X)#convert df to array
         Y=dataset.iloc[:,0:2]
@@ -143,7 +160,7 @@ def read_wifi_data(file_start,file_end):
         for file_num in range (file_start-1,file_end):
             file_num=file_num+1
             path='sensordata/sensor_wifi_timestep100_'+str(file_num)+'.csv' 
-            data=pd.read_csv(path,usecols=[i for i in range(16,209)])
+            data=pd.read_csv(path,usecols=[i for i in range(14,120)])
             res.append(data)
         dataset=pd.concat(res, axis=0)
         X=dataset.iloc[:,4:]
@@ -212,7 +229,7 @@ def read_overlap_data(file_start,file_end):
         label_path='sensordata/sensor_wifi_timestep100_'+str(file_start)+'.csv'
         dataset = pd.read_csv(path,usecols = [11,12,13,14,15])
         dataset = dataset.dropna()
-        wifidata = pd.read_csv(label_path,usecols=[i for i in range(16,209)])
+        wifidata = pd.read_csv(label_path,usecols=[i for i in range(18,120)])
         wifidata = wifidata.dropna()
         dataset_label = pd.read_csv(label_path,usecols = [11,12,13,14,15])
         X=dataset.iloc[0:label_num*timestep,0:3]
@@ -233,7 +250,7 @@ def read_overlap_data(file_start,file_end):
             path='timestep100/'+str(file_num)+'_timestep'+str(timestep)+'.csv'
             label_path='sensordata/sensor_wifi_timestep100_'+str(file_num)+'.csv'
             data = pd.read_csv(path,usecols = [11,12,13,14,15])
-            wifidata = pd.read_csv(label_path,usecols=[i for i in range(16,209)])
+            wifidata = pd.read_csv(label_path,usecols=[i for i in range(18,120)])
             data_label = pd.read_csv(label_path,usecols = [11,12,13,14,15])
             data = data.iloc[0:label_num*timestep,0:5]
             data_label = data_label.iloc[:,0:5]
@@ -317,4 +334,3 @@ def count_label_num(file_num):
     dataset = pd.read_csv(countlabel_path,usecols = [11,12,13,14,15])
     label_num=dataset.shape[0]
     return label_num
-
