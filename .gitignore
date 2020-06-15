@@ -1,3 +1,8 @@
+###ignore mac os hidden files
+# General
+.DS_Store
+.AppleDouble
+.LSOverride
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
