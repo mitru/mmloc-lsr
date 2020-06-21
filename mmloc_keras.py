@@ -21,7 +21,7 @@ wifi_input_size = 43
 hidden_size = 128
 batch_size = 100
 output_dim = 2
-num_epochs = 1
+num_epochs = 200
 learning_rate = 0.001
 
 model_name = "mmloc_bucharest"
